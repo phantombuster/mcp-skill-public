@@ -5,7 +5,7 @@ description: "End-to-end PhantomBuster MCP operator: from a plain goal to a safe
 
 # PhantomBuster MCP Assistant
 
-Version 2.1, public edition (October 2026). Changes between versions are
+Version 2.2, public edition (October 2026). Changes between versions are
 listed in `references/changelog.md`.
 
 ## Bundled knowledge (read these files, they ship with the skill)
@@ -499,6 +499,25 @@ the user that link with the recommendation.
   through the MCP today. After saving, re-fetch the agent and confirm the
   identity id stuck. If a non-primary identity will not bind, say so plainly
   and do not launch on another account.
+- **Fallback account when the identity is disconnected.** There is always a
+  fallback: another LinkedIn account connected to the same workspace. When a
+  run fails because the account is disconnected (expired or invalid session
+  cookie, exit code 87, "Disconnected by LinkedIn", a re-login prompt):
+  1. Stop. Do not relaunch on the same identity.
+  2. Tell the user which account disconnected and which Phantom failed (from
+     the run's log).
+  3. List the other identities of that platform in the workspace with
+     `identities_search`, name each one back, and **always ask the user to
+     switch** to one of them. Offer reconnecting the original account as the
+     other option.
+  4. Never switch accounts without the user's yes, and never pick one for them.
+  5. On yes, attach the chosen identity (keep every other argument field),
+     re-fetch the agent to confirm it bound, and re-run the Part 9 safety math
+     for that account: its volume adds to whatever else already runs on it.
+  6. Relaunch only after a separate yes. If the new identity will not bind,
+     say so and stop.
+  If no other identity is connected, say so and ask the user to reconnect the
+  account (or connect a teammate's with `identities_generate_token`).
 - **Coach**: one identity equals one real account and one shared safety
   budget. If the user wants more volume, the answer is more team accounts, each
   with its own Phantom copy and identity, not a higher cap on one account.
@@ -940,6 +959,29 @@ whether to launch; never call `agents_launch` as a side effect of a change.
 7. Held steps stay idle; say what would start them (manual launch, schedule,
    or the upstream agent finishing).
 
+### AI scoring: test on 10 leads, show the preview, then score everything
+
+Applies to every AI scoring or qualification step (AI LinkedIn Profile
+Enricher, Advanced AI Enricher, or any ICP score).
+
+1. Run the scoring first on a test batch of 10 leads from the list (set the
+   per-launch volume to 10), after the usual launch yes.
+2. When the test run finishes, read its results
+   (`containers_fetch_result_object`) and **show the preview in the chat,
+   once**: a table with one row per lead (name, job title, company, the score
+   or fit verdict, and the reason the AI gave), followed by a one-line summary
+   (for example "6 of 10 scored as ICP, 4 rejected") and anything that looks
+   wrong (a clear ICP lead scored low, empty scores, a column missing).
+3. Ask the user to validate the scoring or change it (the prompt, the criteria,
+   the threshold). Do not end with an open question like "what do you want me
+   to do now?": the next step is always the preview and its validation.
+4. If the user changes the scoring, re-run the same 10 leads and show the new
+   preview.
+5. Once the user validates, set the volume to cover every lead in the source
+   list (count it first), state the total and any AI credits it uses, and run
+   the scoring on all of them. Report the final split (how many matched, how
+   many were rejected) when it finishes.
+
 ---
 
 ## Part 11: Report, monitor, troubleshoot
@@ -997,8 +1039,8 @@ every Phantom in the workspace.
 
 | Error | Fix |
 |---|---|
-| Expired or invalid session cookie, exit code 87 | Reconnect the account (extension, or a magic link for a teammate); avoid VPN or device changes during runs |
-| Disconnected by LinkedIn | Reconnect, restart at 50 to 70% volume, pause 1 to 2 weeks if it repeats |
+| Expired or invalid session cookie, exit code 87 | Ask the user to switch to another LinkedIn account connected to the workspace, or to reconnect this one (fallback account procedure, Part 6.1); avoid VPN or device changes during runs |
+| Disconnected by LinkedIn | Ask the user to switch to another connected account or reconnect (Part 6.1); after reconnecting, restart at 50 to 70% volume, pause 1 to 2 weeks if it repeats |
 | Rate limited / too many requests | Smaller batches (10 to 20), launches 2 to 4 hours apart, no parallel runs on one account; usually clears in hours to 48 hours |
 | Weekly invitation limit reached | Pause connection steps until the rolling week resets |
 | Can't access input spreadsheet / incorrect column name | Share the Sheet "Anyone with the link", use a Sheets URL, set `columnName` to the exact header |
@@ -1031,6 +1073,10 @@ every Phantom in the workspace.
   with `editions_history`, never with a date.
 - **Ids, not names.** Resolve every Phantom to an id and ask when names clash.
 - **Saving is not launching.**
+- **A disconnected account has a fallback.** Always ask the user to switch to
+  another connected account (or reconnect); never switch on your own.
+- **Preview the scoring before scaling it.** Test on 10 leads, show the scored
+  leads in the chat, and run on the whole list only after the user validates.
 - **Sheets stay sheets.** Use the user's Google Sheets link as given; never
   swap it for a CSV export or a rebuilt copy. CSV files are not a supported
   input.
