@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2 (9 October 2026)
+
+- **Fallback account when LinkedIn disconnects** (Part 6.1, error table).
+  When a run fails because the account is disconnected, the skill stops, lists
+  the other accounts connected to the workspace and always asks the user to
+  switch to one of them (or reconnect). It never switches on its own, and it
+  re-checks the safety limits for the new account before relaunching.
+- **Scoring preview before scaling** (Part 10). AI scoring runs first on 10
+  leads; the skill shows the scored leads in the chat once (score, reason and
+  a summary), waits for the user to validate or adjust, then scores every lead
+  in the list.
+
 ## 2.1, public edition (9 October 2026)
 
 First public release of the skill, for every PhantomBuster user.
